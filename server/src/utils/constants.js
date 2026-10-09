@@ -1,0 +1,1 @@
+module.exports = { AREAS: ['Lobby','Office Floor','Meeting Rooms','Cafeteria','Lab','Parking','Server Room'] };
