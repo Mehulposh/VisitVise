@@ -64,3 +64,39 @@ No default admin exists any more. The first admin comes from `ADMIN_EMAIL` + a s
 * "Server Room" is seeded as a sensitive area (needs admin approval). Change it under `/api/admin/areas`.
 * Existing pass codes (8 characters) keep working; new ones have 10.
 * Rotate `JWT_SECRET` and any SMTP or database credentials that were in the shared zip.
+
+
+# VisitPass – Frontend 
+
+React 18 + Vite + Tailwind CSS 3 for the **visitvise-backend** v2. Glassmorphism UI, light / dark **theme toggle**, role-based screens, live updates.
+
+## Run
+```bash
+# 1. backend (../visitvise-backend): npm install, copy .env.example to .env, npm run dev   -> http://localhost:3000
+# 2. frontend:
+npm install
+npm run dev          # http://localhost:5173
+npm run build        # dist/ -> the server serves ../client/dist, or set CLIENT_DIST in the server .env
+```
+The Vite dev server **proxies `/api` to the backend** (the old client had no proxy, so `npm run dev` could not reach the API). Same-origin means the httpOnly login cookie, the live event stream and the private images all work with no CORS setup. In production let the Express server serve `dist/` (it already does when `CLIENT_DIST` points at it).
+
+## Design
+* **Glass** surfaces over a gradient + floating-blob backdrop, soft shadows, animated toasts and result cards.
+* **Theme toggle** (sun / moon) on every screen. It is saved in `localStorage`, applied before first paint (no flash) and follows the OS setting on the first visit.
+* Responsive: sidebar on desktop, slide-over menu on phones; the scanner and kiosk are built for phones and tablets.
+* Print stylesheet: the visitor badge and the roll-call list print cleanly (everything else is hidden).
+
+## Screens
+| Who | Screens |
+|---|---|
+| Visitor (no login) | **Pass page** `/pass/:code` (badge with QR and photo, live status, sign the agreement, health declaration, add to calendar, print, "erase my data"), **Walk-in kiosk** `/kiosk` (find the host, details, photo, wait for approval, get the badge; `?key=` for a kiosk device key), **Host approval link** `/approve/:id/:token` (one-tap approve / deny from the email) |
+| Host (`user`) | Dashboard (today, on site, waiting for you, coming up; walk-in approvals), **Register a visitor** (returning-visitor autocomplete, several visitors at once, multi-day pass, repeat weekly, areas with 🔒 sensitive areas, vehicle, send by email / SMS / WhatsApp), My visitors (search, status tabs, edit / reschedule, resend, cancel), Visit detail (gate activity timeline, calendar file), Settings (profile, password, "cover for me" delegate) |
+| Guard (`security`) | **Gate desk**: camera QR scanner (check-in / access or check-out, area picker, big green / red result with photo, health-flag clearing, session log), Expected today, **On site now** (live), photo / ID / vehicle capture, **courier fast lane** |
+| Admin | Overview analytics (visits per day, busiest hours, areas, purposes, top hosts, no-show rate, avg visit), All visits (+ anonymise), **Restricted-area approvals**, Users (create guards / admins, roles, disable, reset), **Sites & policy** (hours, holidays, agreement text, health declaration, walk-in length, auto check-out, data retention), Areas (capacity, sensitive), Blocklist, Logs (gate scans + audit trail), Webhooks (Slack / Teams / signed JSON), Roll-call (printable) + CSV export |
+
+Everyone also gets notifications (bell with live count) and **live toasts** for arrivals, refusals, walk-ins, overstays and no-shows.
+
+## Notes
+* The QR scanner uses `html5-qrcode` and needs **HTTPS or localhost** for camera access; the guard can always type the code (dashes and spaces are fine) or paste the pass link.
+* Photo and ID capture open the device camera on phones and a file picker on desktops. ID images are deleted by the server at check-out.
+* Verified in the build environment: all 39 source files parse (JSX), no undefined identifiers, every import and named export resolves, and all 83 API calls match a route in `visitvise-backend`. It could **not** be bundled or opened in a browser there (no network for `npm install`), so run it once and report anything odd.
