@@ -1,23 +1,31 @@
 {
-  "name": "server",
-  "version": "1.0.0",
-  "main": "index.js",
+  "name": "visitvise-server",
+  "version": "2.0.0",
+  "description": "Secured visitor-management API (VisitVise v2)",
+  "main": "src/server.js",
   "scripts": {
-     "start": "node src/server.js",
-     "dev": "nodemon src/server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "test": "node --test",
+    "create-admin": "node scripts/createAdmin.js",
+    "migrate": "node scripts/migrate.js"
   },
-  "keywords": [],
-  "author": "",
+  "engines": { "node": ">=20" },
   "license": "ISC",
-  "description": "",
   "dependencies": {
     "bcryptjs": "^3.0.3",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
     "dotenv": "^18.0.6",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.0.0",
+    "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.11.1",
+    "multer": "^2.0.0",
     "nodemailer": "^10.0.16",
-    "nodemon": "^3.1.14"
-  }
+    "qrcode": "^1.5.4",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": { "nodemon": "^3.1.14" }
 }
