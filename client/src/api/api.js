@@ -1,13 +1,13 @@
-let token = localStorage.getItem('tok') || '';
-export const setToken = t => { token = t; t ? localStorage.setItem('tok', t) : localStorage.removeItem('tok'); };
-export async function api(method, url, body) {
-  const r = await fetch('/api' + url, {
-    method,
-    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) },
-    body: body ? JSON.stringify(body) : undefined
-  });
-  const d = await r.json().catch(() => ({}));
-  if (r.status === 401 && token && url !== '/login') window.dispatchEvent(new Event('unauth'));
-  if (!r.ok) throw new Error(d.error || 'Something went wrong');
-  return d;
-}
+import axios from "axios";
+
+const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || "/api", withCredentials: true });
+api.interceptors.response.use((r) => r, (err) => {
+  const url = err.config?.url || "";
+  if (err.response?.status === 401 && !/^\/(login|me|register)/.test(url) && !url.startsWith("/auth/")) window.dispatchEvent(new Event("auth:expired"));
+  return Promise.reject(err);
+});
+export const errMsg = (e) => e?.response?.data?.error || e?.response?.data?.message || e?.message || "Something went wrong";
+// photo and QR are served by pass code (the code is the secret, same as the badge link)
+export const photoUrl = (code) => `/api/pass/${code}/photo`;
+export const qrUrl = (code) => `/api/pass/${code}/qr.svg`;
+export default api;
