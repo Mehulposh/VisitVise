@@ -1,58 +1,92 @@
-import { Routes, Route, Link, Navigate } from 'react-router-dom';
-import { useAuth } from './context/AuthContext.jsx';
-import Landing from './pages/Landing.jsx';
-import Auth from './pages/Auth.jsx';
-import Home from './pages/Home.jsx';
-import Admin from './pages/Admin.jsx';
-import Pass from './pages/Pass.jsx';
+import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
+import { useAuth } from "./context/AuthContext";
+import Background from "./components/Background";
+import Layout from "./components/Layout";
+import { Spinner } from "./components/ui";
 
-function Nav() {
-  const { user, logout } = useAuth();
-  return user ? (
-    <div className="flex items-center gap-2">
-      <span className="hidden text-sm text-slate-500 sm:inline">{user.name}</span>
-      <Link className="btn-ghost btn-sm" to={user.role === 'admin' ? '/admin' : '/home'}>Dashboard</Link>
-      <button className="btn-primary btn-sm" onClick={logout}>Log out</button>
-    </div>
-  ) : (
-    <div className="flex items-center gap-2">
-      <Link className="btn-ghost btn-sm" to="/pass">Visitor pass</Link>
-      <Link className="btn-ghost btn-sm" to="/login">Log in</Link>
-      <Link className="btn-primary btn-sm" to="/register">Register</Link>
-    </div>
-  );
+import Landing from "./pages/Landing";
+import { Login, Register, ForgotPassword, ResetPassword, VerifyEmail } from "./pages/Auth";
+import PassPage from "./pages/PassPage";
+import Kiosk from "./pages/Kiosk";
+import Approve from "./pages/Approve";
+import Notifications from "./pages/Notifications";
+import Settings from "./pages/Settings";
+import HostDashboard from "./pages/host/Dashboard";
+import NewVisit from "./pages/host/NewVisit";
+import MyVisits from "./pages/host/MyVisits";
+import VisitDetail from "./pages/host/VisitDetail";
+import Gate from "./pages/gate/Gate";
+import AdminOverview from "./pages/admin/Overview";
+import { AdminVisits, Approvals } from "./pages/admin/Visits";
+import Users from "./pages/admin/Users";
+import { Sites, Areas } from "./pages/admin/Sites";
+import { Blocklist, Webhooks, Logs, Tools } from "./pages/admin/More";
+
+const HOME = { user: "/dashboard", security: "/gate", admin: "/admin" };
+
+function RequireAuth() {
+  const { user, ready } = useAuth(); const loc = useLocation();
+  if (!ready) return <Spinner className="min-h-screen" />;
+  return user ? <Outlet /> : <Navigate to="/login" replace state={{ from: loc.pathname }} />;
 }
-function Protected({ role, children }) {
-  const { user } = useAuth();
-  if (!user) return <Navigate to="/login" replace />;
-  if (role && user.role !== role) return <Navigate to={user.role === 'admin' ? '/admin' : '/home'} replace />;
-  return children;
+const RequireRole = ({ roles }) => { const { user } = useAuth(); return roles.includes(user.role) ? <Outlet /> : <Navigate to={HOME[user.role]} replace />; };
+function GuestOnly({ children }) {
+  const { user, ready } = useAuth();
+  if (!ready) return <Spinner className="min-h-screen" />;
+  return user ? <Navigate to={HOME[user.role]} replace /> : children;
 }
+function Root() {
+  const { user, ready } = useAuth();
+  if (!ready) return <Spinner className="min-h-screen" />;
+  return user ? <Navigate to={HOME[user.role]} replace /> : <Landing />;
+}
+
 export default function App() {
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 backdrop-blur print:hidden">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
-          <Link to="/" className="flex items-center gap-2 text-lg font-extrabold tracking-tight">
-            <span className="grid h-8 w-8 place-items-center rounded-lg bg-indigo-600 text-sm text-white">V</span>
-            <span>Visit<span className="text-indigo-600">Pass</span></span>
-          </Link>
-          <Nav />
-        </div>
-      </header>
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
-        <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/login" element={<Auth />} />
-          <Route path="/register" element={<Auth register />} />
-          <Route path="/home" element={<Protected role="user"><Home /></Protected>} />
-          <Route path="/admin" element={<Protected role="admin"><Admin /></Protected>} />
-          <Route path="/pass" element={<Pass />} />
-          <Route path="/pass/:code" element={<Pass />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </main>
-      <footer className="border-t border-slate-200 py-4 text-center text-xs text-slate-400 print:hidden">© VisitPass · Visitor Management</footer>
-    </div>
+    <>
+      <Background />
+      <Routes>
+        <Route path="/" element={<Root />} />
+        <Route path="/login" element={<GuestOnly><Login /></GuestOnly>} />
+        <Route path="/register" element={<GuestOnly><Register /></GuestOnly>} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
+        {/* public: visitor pass, walk-in kiosk, host approval link */}
+        <Route path="/pass/:code" element={<PassPage />} />
+        <Route path="/kiosk" element={<Kiosk />} />
+        <Route path="/approve/:id/:token" element={<Approve />} />
+
+        <Route element={<RequireAuth />}>
+          <Route element={<Layout />}>
+            <Route path="/notifications" element={<Notifications />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route element={<RequireRole roles={["user", "admin"]} />}>
+              <Route path="/dashboard" element={<HostDashboard />} />
+              <Route path="/visits/new" element={<NewVisit />} />
+              <Route path="/visits" element={<MyVisits />} />
+              <Route path="/visits/:id" element={<VisitDetail />} />
+            </Route>
+            <Route element={<RequireRole roles={["security", "admin"]} />}>
+              <Route path="/gate" element={<Gate />} />
+            </Route>
+            <Route element={<RequireRole roles={["admin"]} />}>
+              <Route path="/admin" element={<AdminOverview />} />
+              <Route path="/admin/visits" element={<AdminVisits />} />
+              <Route path="/admin/visits/:id" element={<VisitDetail />} />
+              <Route path="/admin/approvals" element={<Approvals />} />
+              <Route path="/admin/users" element={<Users />} />
+              <Route path="/admin/sites" element={<Sites />} />
+              <Route path="/admin/areas" element={<Areas />} />
+              <Route path="/admin/blocklist" element={<Blocklist />} />
+              <Route path="/admin/logs" element={<Logs />} />
+              <Route path="/admin/webhooks" element={<Webhooks />} />
+              <Route path="/admin/tools" element={<Tools />} />
+            </Route>
+          </Route>
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </>
   );
 }
