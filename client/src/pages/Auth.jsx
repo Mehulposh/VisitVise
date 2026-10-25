@@ -1,36 +1,87 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { api } from '../api/api.js';
-import { useAuth } from '../context/AuthContext.jsx';
-export default function Auth({ register }) {
-  const [f, setF] = useState({ name: '', email: '', password: '' });
-  const [err, setErr] = useState(''), [busy, setBusy] = useState(false);
-  const { login } = useAuth(), nav = useNavigate();
-  const set = k => e => setF({ ...f, [k]: e.target.value });
-  const submit = async e => {
-    e.preventDefault(); setErr(''); setBusy(true);
-    try { const d = await api('POST', register ? '/register' : '/login', f); login(d); nav(d.user.role === 'admin' ? '/admin' : '/home'); }
-    catch (x) { setErr(x.message); }
-    setBusy(false);
-  };
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { CheckCircle2, Eye, EyeOff, IdCard, XCircle } from "lucide-react";
+import api, { errMsg } from "../api/api";
+import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
+import { Button, Card, Field, Input, Spinner } from "../components/ui";
+import ThemeToggle from "../components/ThemeToggle";
+
+const HOME = { user: "/dashboard", security: "/gate", admin: "/admin" };
+function Shell({ title, subtitle, children, footer }) {
   return (
-    <div className="mx-auto mt-6 max-w-md">
-      <form onSubmit={submit} className="card space-y-4 p-8">
-        <div className="text-center">
-          <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-xl bg-indigo-600 text-xl font-bold text-white">V</div>
-          <h1 className="text-2xl font-bold">{register ? 'Create your account' : 'Welcome back'}</h1>
-          <p className="text-sm text-slate-500">{register ? 'Register to invite and manage your visitors.' : 'Log in to manage your visitors.'}</p>
-        </div>
-        {register && <label className="label">Full name<input className="input" value={f.name} onChange={set('name')} autoComplete="name" /></label>}
-        <label className="label">Email<input className="input" type="email" value={f.email} onChange={set('email')} autoComplete="email" /></label>
-        <label className="label">Password<input className="input" type="password" value={f.password} onChange={set('password')} autoComplete={register ? 'new-password' : 'current-password'} /></label>
-        {err && <div className="alert-err">{err}</div>}
-        <button className="btn-primary w-full py-2.5" disabled={busy}>{busy ? 'Please wait…' : register ? 'Register' : 'Log in'}</button>
-        <p className="text-center text-sm text-slate-500">
-          {register ? <>Already have an account? <Link className="font-medium text-indigo-600 hover:underline" to="/login">Log in</Link></>
-            : <>No account yet? <Link className="font-medium text-indigo-600 hover:underline" to="/register">Register</Link></>}
-        </p>
-      </form>
+    <div className="grid min-h-screen place-items-center p-4">
+      <div className="absolute right-4 top-4"><ThemeToggle /></div>
+      <div className="w-full max-w-md animate-rise">
+        <Link to="/" className="mb-6 flex items-center justify-center gap-2.5"><span className="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-teal-500 to-blue-600 text-white shadow-lg shadow-teal-500/40"><IdCard size={22} /></span><span className="text-xl font-extrabold">Visit<span className="gradient-text">Pass</span></span></Link>
+        <Card className="!p-7"><h1 className="text-2xl font-extrabold">{title}</h1>{subtitle && <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{subtitle}</p>}<div className="mt-6">{children}</div></Card>
+        {footer && <p className="mt-5 text-center text-sm text-slate-600 dark:text-slate-300">{footer}</p>}
+      </div>
     </div>
+  );
+}
+const PasswordInput = (p) => {
+  const [show, setShow] = useState(false);
+  return <div className="relative"><Input {...p} type={show ? "text" : "password"} className="pr-11" />
+    <button type="button" onClick={() => setShow(!show)} aria-label="Toggle password visibility" className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">{show ? <EyeOff size={18} /> : <Eye size={18} />}</button></div>;
+};
+
+export function Login() {
+  const { login } = useAuth(); const nav = useNavigate(); const toast = useToast();
+  const [f, setF] = useState({ email: "", password: "" }); const [busy, setBusy] = useState(false);
+  const submit = async (e) => { e.preventDefault(); setBusy(true); try { const u = await login(f.email, f.password); nav(HOME[u.role], { replace: true }); } catch (err) { toast(errMsg(err), "error"); } finally { setBusy(false); } };
+  return (
+    <Shell title="Welcome back" subtitle="Log in to manage visitors" footer={<>New here? <Link className="font-semibold text-teal-600 dark:text-teal-300" to="/register">Create an account</Link> · <Link className="font-semibold text-teal-600 dark:text-teal-300" to="/kiosk">Walk-in kiosk</Link></>}>
+      <form onSubmit={submit} className="space-y-4">
+        <Field label="Email"><Input type="email" required autoComplete="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></Field>
+        <Field label="Password"><PasswordInput required autoComplete="current-password" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} /></Field>
+        <div className="text-right"><Link to="/forgot-password" className="text-xs font-semibold text-teal-600 dark:text-teal-300">Forgot password?</Link></div>
+        <Button className="w-full" size="lg" loading={busy}>Log in</Button>
+      </form>
+    </Shell>
+  );
+}
+export function Register() {
+  const { register } = useAuth(); const nav = useNavigate(); const toast = useToast();
+  const [f, setF] = useState({ name: "", email: "", password: "", department: "" }); const [busy, setBusy] = useState(false);
+  const submit = async (e) => { e.preventDefault(); setBusy(true); try { const b = { ...f }; if (!b.department) delete b.department; const u = await register(b); toast("Welcome! Please check your email to verify your address."); nav(HOME[u.role], { replace: true }); } catch (err) { toast(errMsg(err), "error"); } finally { setBusy(false); } };
+  return (
+    <Shell title="Create your account" subtitle="Host visitors in a minute" footer={<>Already registered? <Link className="font-semibold text-teal-600 dark:text-teal-300" to="/login">Log in</Link></>}>
+      <form onSubmit={submit} className="space-y-4">
+        <Field label="Full name"><Input required maxLength={80} value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
+        <Field label="Work email"><Input type="email" required value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></Field>
+        <Field label="Department (optional)"><Input maxLength={60} value={f.department} onChange={(e) => setF({ ...f, department: e.target.value })} /></Field>
+        <Field label="Password" hint="At least 8 characters with a letter and a number"><PasswordInput required minLength={8} autoComplete="new-password" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} /></Field>
+        <Button className="w-full" size="lg" loading={busy}>Create account</Button>
+      </form>
+    </Shell>
+  );
+}
+export function ForgotPassword() {
+  const toast = useToast(); const [email, setEmail] = useState(""); const [busy, setBusy] = useState(false); const [sent, setSent] = useState(false);
+  const submit = async (e) => { e.preventDefault(); setBusy(true); try { await api.post("/auth/forgot-password", { email }); setSent(true); } catch (err) { toast(errMsg(err), "error"); } finally { setBusy(false); } };
+  return (
+    <Shell title="Reset password" subtitle="We will email you a reset link" footer={<Link className="font-semibold text-teal-600 dark:text-teal-300" to="/login">Back to login</Link>}>
+      {sent ? <p className="rounded-xl bg-emerald-500/10 p-4 text-sm text-emerald-700 dark:text-emerald-300">If that email exists, a reset link is on its way.</p>
+        : <form onSubmit={submit} className="space-y-4"><Field label="Email"><Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} /></Field><Button className="w-full" loading={busy}>Send reset link</Button></form>}
+    </Shell>
+  );
+}
+export function ResetPassword() {
+  const [sp] = useSearchParams(); const nav = useNavigate(); const toast = useToast(); const [password, setPassword] = useState(""); const [busy, setBusy] = useState(false);
+  const submit = async (e) => { e.preventDefault(); setBusy(true); try { await api.post("/auth/reset-password", { token: sp.get("token") || "", password }); toast("Password updated. Please log in."); nav("/login"); } catch (err) { toast(errMsg(err), "error"); } finally { setBusy(false); } };
+  return (
+    <Shell title="Choose a new password" footer={<Link className="font-semibold text-teal-600 dark:text-teal-300" to="/login">Back to login</Link>}>
+      <form onSubmit={submit} className="space-y-4"><Field label="New password" hint="At least 8 characters with a letter and a number"><PasswordInput required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} /></Field><Button className="w-full" loading={busy}>Update password</Button></form>
+    </Shell>
+  );
+}
+export function VerifyEmail() {
+  const [sp] = useSearchParams(); const [s, setS] = useState({ loading: true, ok: false, msg: "" });
+  useEffect(() => { api.post("/auth/verify-email", { token: sp.get("token") || "" }).then(() => setS({ loading: false, ok: true, msg: "Your email is verified." })).catch((e) => setS({ loading: false, ok: false, msg: errMsg(e) })); }, [sp]);
+  return (
+    <Shell title="Email verification" footer={<Link className="font-semibold text-teal-600 dark:text-teal-300" to="/login">Continue</Link>}>
+      {s.loading ? <Spinner /> : <div className="flex flex-col items-center gap-3 py-4 text-center">{s.ok ? <CheckCircle2 size={48} className="text-emerald-500" /> : <XCircle size={48} className="text-rose-500" />}<p className="font-semibold">{s.msg}</p></div>}
+    </Shell>
   );
 }
