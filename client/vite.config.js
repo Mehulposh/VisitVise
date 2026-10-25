@@ -1,8 +1,9 @@
-import react from '@vitejs/plugin-react'
-import { defineConfig } from 'vite'
-import tailwindcss from '@tailwindcss/vite'
+import { defineConfig, loadEnv } from "vite";
+import react from "@vitejs/plugin-react";
 
-// https://vite.dev/config/
-export default defineConfig({
-  plugins: [react(),tailwindcss()],
-})
+// The old client had NO dev proxy, so `npm run dev` could not reach the API. /api is now forwarded to the server
+// (same-origin => the httpOnly login cookie, images and the live event stream all just work).
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), "");
+  return { plugins: [react()], server: { port: 5173, proxy: { "/api": { target: env.VITE_API_TARGET || "http://localhost:3000", changeOrigin: false } } } };
+});
